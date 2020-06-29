@@ -1,0 +1,6 @@
+#!/bin/sh -ex
+cd /app
+tsc
+tsc -w &
+devd -l -p 80 -A 0.0.0.0 --quiet /app/demo/ &
+modd -b -f /defdev/modd.conf

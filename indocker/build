@@ -1,0 +1,50 @@
+#!/bin/sh -e
+cd /app
+CMDFILE=`mktemp`
+
+echo "" > $CMDFILE
+
+echo java -jar /app/node_modules/google-closure-compiler/compiler.jar $@ \
+      -O BUNDLE\
+      --language_in=ECMASCRIPT_2017\
+      --language_out=ECMASCRIPT3\
+      --dependency_mode=STRICT\
+      --jscomp_off=missingProperties\
+      --jscomp_off=checkTypes\
+      --module_resolution=NODE\
+      --isolation_mode=IIFE\
+      --warning_level VERBOSE \
+      --js='/tmp/jsphase1/**.js'\
+      --entry_point=/tmp/jsphase1/index.js\
+      --js_output_file=dist/index.js >> $CMDFILE
+
+#      -O ADVANCED\
+#      --entry_point='/tmp/**/global_include/**.js'\
+
+qunitfile=`mktemp`
+echo "#!/bin/sh -e" >> $qunitfile
+echo java -jar /app/node_modules/google-closure-compiler/compiler.jar $@ \
+      -O ADVANCED\
+      --language_in=ECMASCRIPT_2017\
+      --language_out=ECMASCRIPT3\
+      --jscomp_off=missingProperties\
+      --externs externs/qunit.js\
+      --jscomp_off=checkTypes\
+      --module_resolution=NODE\
+      --isolation_mode=IIFE\
+      --warning_level VERBOSE\
+      --define SUPPRESS_LOGS\
+      --js='/tmp/jsphase1/**.js'\
+      --js_output_file=/app/dist/withtests.js >> $qunitfile
+
+echo cd /app/demo/ >> $qunitfile
+echo cp /app/dist/* . >> $qunitfile
+echo node-qunit-phantomjs qunit.html  >> $qunitfile
+
+chmod 755 $qunitfile
+echo $qunitfile \#qunit tests >> $CMDFILE
+
+echo tslint -p tsconfig.json >> $CMDFILE
+
+echo "Compiling, testing, and linting in parallel"
+cat $CMDFILE | defparallel
